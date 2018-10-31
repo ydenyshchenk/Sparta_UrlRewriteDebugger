@@ -41,11 +41,18 @@ class DbStorage extends MagentoDbStorage
                 && preg_match('#SQLSTATE\[23000\]: [^:]+: 1062[^\d]#', $e->getMessage())
             ) {
                 $message = $e->getMessage();
+                preg_match("/Duplicate\sentry\s\'([^\']+)\'\sfor/", $message, $matches);
                 $messages = explode(', query was:', $message);
 
-                throw new AlreadyExistsException(
-                    __('URL key for specified store already exists: ' . $messages[0])
-                );
+                $newMessage = 'URL key for specified store already exists: ';
+                if (!empty($matches[1])) {
+                    $requestPath = $matches[1];
+                    $newMessage .= "execute the next SQL to find duplicate URL rewrite: SELECT * FROM `url_rewrite` WHERE CONCAT(`request_path`, '-', `store_id`) = '$requestPath';";
+                } else {
+                    $newMessage .= $messages[0];
+                }
+
+                throw new AlreadyExistsException(__($newMessage));
             }
             throw $e;
         }
